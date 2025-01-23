@@ -1,0 +1,61 @@
+# Node.js modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+temp/
+*.tmp
+*.temp
+
+# Build artifacts
+dist/
+build/
+
+# Dependency directories
+bower_components/
+
+# Environment variables
+.env
+.env.*.local
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# MacOS files
+.DS_Store
+
+# Temporary uploads
+uploads/
+
+# Backup files
+backup.sql
+*.backup
+
+# Other
+coverage/
+*.orig
+*.rej
+
+# Docker-related
+docker-compose.override.yml
+.dockerignore
+
+# Ignore npm debug files
+npm-debug.log*
