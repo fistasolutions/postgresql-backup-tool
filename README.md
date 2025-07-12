@@ -6,8 +6,13 @@ This is a Node.js application that provides functionality to export and import P
 ## Features
 
 - Export PostgreSQL database schema and data to a `.sql` file.
+- Export specific table data to a `.sql` file.
+- List all tables in the database with separation of user tables and system tables.
 - Import `.sql` file into a PostgreSQL database.
 - Set the PostgreSQL connection string dynamically via API.
+- **NEW**: Smart system table detection and validation to prevent export of problematic data.
+- **NEW**: Enhanced data formatting for PostgreSQL-specific data types.
+- **NEW**: Improved error handling for system tables like `pg_user_mapping`, `pg_proc`, etc.
 
 ## Prerequisites
 
@@ -47,7 +52,7 @@ Run the following command to start the server:
 node index.js
 ```
 
-The server will run on `http://localhost:3000`.
+The server will run on `http://localhost:5000`.
 
 ### 2. API Endpoints
 
@@ -63,7 +68,29 @@ The server will run on `http://localhost:3000`.
 **Response**:  
 `Connection string received`
 
-#### b) Export Database Backup
+#### b) List Tables
+
+**Endpoint**: `POST /backup/list-tables`  
+**Body**:
+```json
+{
+  "connectionString": "your_postgresql_connection_string"
+}
+```
+**Response**:
+```json
+{
+  "success": true,
+  "userTables": ["users", "posts", "comments"],
+  "systemTables": ["pg_user_mapping", "pg_proc", "pg_stat_activity"],
+  "userTableCount": 3,
+  "systemTableCount": 3,
+  "totalCount": 6,
+  "message": "Found 3 user tables and 3 system tables. Only user tables can be safely exported."
+}
+```
+
+#### c) Export Database Backup
 
 **Endpoint**: `POST /backup/export`  
 **Body**:
@@ -75,7 +102,20 @@ The server will run on `http://localhost:3000`.
 **Response**:  
 Triggers a download for `backup.sql`, which contains the exported database schema and data.
 
-#### c) Import Database Backup
+#### d) Export Specific Table
+
+**Endpoint**: `POST /backup/export-table`  
+**Body**:
+```json
+{
+  "connectionString": "your_postgresql_connection_string",
+  "tableName": "users"
+}
+```
+**Response**:  
+Triggers a download for `{tableName}_backup.sql`, which contains the exported table schema and data.
+
+#### e) Import Database Backup
 
 **Endpoint**: `POST /backup/import`  
 **Form-Data**:  
@@ -84,10 +124,49 @@ Triggers a download for `backup.sql`, which contains the exported database schem
 **Response**:  
 `Database imported successfully` or an error message.
 
-### 3. Notes
+### 3. System Table Protection
+
+The application now includes intelligent protection against exporting system tables and problematic data:
+
+- **Automatic Detection**: System tables (starting with `pg_`, `sql_`, containing `information_schema`, etc.) are automatically detected and excluded.
+- **Column Validation**: Tables with system columns (containing `oid`, `pg_`, `mapping`, `proc`, etc.) are rejected.
+- **Data Validation**: Actual data is validated to ensure it doesn't contain system-specific information.
+- **Safe Formatting**: Enhanced `formatValue` function handles PostgreSQL-specific data types safely.
+
+#### Fixed Issues
+
+**System Column Names as Data Values**: Previously, when exporting tables, the system would sometimes return system column names (like `pg_foreign_data_wrapper_name_index`) instead of actual primary key values. This has been fixed by:
+
+1. **Enhanced Detection**: The `formatValue` function now detects system column names and rejects them as data values
+2. **Column Mismatch Validation**: The export process validates that the actual columns returned match the expected columns from the information schema
+3. **System Column Filtering**: Tables with system columns are rejected before export attempts
+
+**Example of the Fix**:
+```sql
+-- Before (incorrect):
+INSERT INTO "spin_count" ("spin_id", "created_at", "user_id", "spin_value") 
+VALUES ('pg_foreign_data_wrapper_name_index', '2025-02-24T15:46:26.517Z', 531, 10);
+
+-- After (correct):
+INSERT INTO "spin_count" ("spin_id", "created_at", "user_id", "spin_value") 
+VALUES (123, '2025-02-24T15:46:26.517Z', 531, 10);
+```
+
+### 4. Error Handling
+
+The application now provides better error messages:
+
+- Clear indication when trying to export system tables
+- Detailed error messages for problematic data
+- Graceful handling of PostgreSQL-specific data types
+- Validation of table structure before export
+
+### 5. Notes
 
 - Ensure the connection string has proper permissions to access the PostgreSQL database.
 - For importing, the `.sql` file should contain valid SQL commands for PostgreSQL.
+- **System tables cannot be exported** - this is by design to prevent data corruption.
+- The application automatically skips problematic tables during full database export.
 
 ## Folder Structure
 
@@ -107,6 +186,18 @@ postgresql-backup-tool/
 - [multer](https://www.npmjs.com/package/multer): Middleware for handling file uploads.
 - [fs](https://nodejs.org/api/fs.html): Node.js file system module.
 - [path](https://nodejs.org/api/path.html): Node.js module for file path utilities.
+
+## Recent Improvements
+
+### v2.0.0 - System Table Protection
+- Added intelligent system table detection
+- Enhanced data validation and formatting
+- Improved error handling for PostgreSQL-specific data types
+- Added table listing endpoint with user/system table separation
+- Fixed issues with `pg_user_mapping`, `pg_proc`, and other system tables
+- **FIXED**: System column names being returned as data values (e.g., `pg_foreign_data_wrapper_name_index` instead of actual primary key values)
+- **FIXED**: Column mismatch detection between expected and actual column names
+- **FIXED**: Enhanced `formatValue` function to detect and reject system column names as data
 
 ## License
 
